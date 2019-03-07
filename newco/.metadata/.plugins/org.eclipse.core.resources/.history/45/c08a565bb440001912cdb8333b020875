@@ -1,0 +1,96 @@
+package com.lnt.services;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import com.lnt.services.data.Contents;
+import com.lnt.services.data.RootJson;
+import com.lnt.workers.CMDCWorker;
+import com.lnt.workers.YouTubeWorker;
+
+@Service
+public class SearchResultService {
+	
+	private String searchString;
+	
+	private Map<String, String[]> map;
+	private String urlFromProps;
+	private String searchUrl;
+	private CountDownLatch countDownLatch;
+	private Contents[] contents;
+	
+
+	public RootJson getSearchResult(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+
+		RootJson json = new RootJson();
+		String url = httpServletRequest.getRequestURI();
+		map = httpServletRequest.getParameterMap();
+		String qString = httpServletRequest.getQueryString();
+		StringBuffer urlString = httpServletRequest.getRequestURL();
+		System.out.println("Query String " + qString);
+		System.out.println("Requestd Url " + urlString);
+		System.out.println("Request URI " + url);
+		getProjectName();
+		System.out.println("CMDC URL from props " + urlFromProps);
+		// urlString = new StringBuffer("http://10.126.53.144:8085/cmdc/content");
+		urlString = new StringBuffer(urlFromProps);
+		searchUrl = getSearchURL(urlString, qString);
+		System.out.println("search Url  " + searchUrl);
+		searchString = getSearchString(map);
+		System.out.println("search string " + searchString);
+		// json = getSearchResults(searchUrl, searchString);
+		countDownLatch = new CountDownLatch(2);
+		ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+		/*
+		 * Future<RootJson> youtubeFuture = executorService.submit(new YouTubeThread());
+		 * Future<RootJson> cmdcFuture = executorService.submit(new CMDCThread());
+		 */
+
+		Future<RootJson> youtubeFuture = executorService
+				.submit(new YouTubeWorker(searchString, restTemplate, countDownLatch));
+		Future<RootJson> cmdcFuture = executorService.submit(new CMDCWorker(searchUrl, restTemplate, countDownLatch));
+
+		RootJson yJson = null;
+		RootJson cJson = null;
+		try {
+			DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+			LocalDateTime now = LocalDateTime.now();
+			System.out.println("before await " + dtf.format(now));
+			countDownLatch.await();
+			DateTimeFormatter dtf1 = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+			LocalDateTime now1 = LocalDateTime.now();
+			System.out.println("after await " + dtf1.format(now1));
+
+			yJson = youtubeFuture.get();
+			cJson = cmdcFuture.get();
+			System.out.println("SearchMicroServices.getSearchResult() countDownLatch " + countDownLatch.getCount());
+		} catch (InterruptedException | ExecutionException e) {
+			e.printStackTrace();
+		}
+
+		executorService.shutdown();
+		contents = yJson.getContents();
+		System.out.println("SearchMicroServices.getSearchResult() content length " + contents.length);
+		poster.updateMediaURIForYoutube(contents);
+		json = getCompleteResult(yJson, cJson);
+		System.out.println("SearchMicroServices.getSearchResult() hash len" + urlMapping.size());
+
+		System.out.println(urlMapping);
+
+		return json;
+
+	}
+}

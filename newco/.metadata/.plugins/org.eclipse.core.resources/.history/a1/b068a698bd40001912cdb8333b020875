@@ -1,0 +1,60 @@
+package com.lnt.workers;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import com.lnt.services.data.RootJson;
+
+@Service
+public class WorkerManger {
+
+	private CountDownLatch countDownLatch;
+	private RootJson yJson = null;
+	private RootJson cJson = null;
+
+	public WorkerManger() {
+	}
+
+	public void exectureWorker(String searchString, String searchUrl, RestTemplate restTemplate) {
+		countDownLatch = new CountDownLatch(2);
+		ExecutorService executorService = Executors.newFixedThreadPool(2);
+		Future<RootJson> youtubeFuture = executorService
+				.submit(new YouTubeWorker(searchString, restTemplate, countDownLatch));
+		Future<RootJson> cmdcFuture = executorService.submit(new CMDCWorker(searchUrl, restTemplate, countDownLatch));
+		try {
+			getCurrentTime();
+			countDownLatch.await();
+			getCurrentTime();
+			yJson = youtubeFuture.get();
+			cJson = cmdcFuture.get();
+			System.out.println("SearchMicroServices.getSearchResult() countDownLatch " + countDownLatch.getCount());
+		} catch (InterruptedException | ExecutionException e) {
+			e.printStackTrace();
+		}
+		executorService.shutdown();
+	}
+
+	private void getCurrentTime() {
+		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+		LocalDateTime now = LocalDateTime.now();
+		System.out.println("Current time  " + dtf.format(now));
+
+	}
+
+	public RootJson getyJson() {
+		return yJson;
+	}
+
+	public RootJson getcJson() {
+		return cJson;
+	}
+
+}

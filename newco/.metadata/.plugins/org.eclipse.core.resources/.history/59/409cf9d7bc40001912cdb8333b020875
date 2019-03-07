@@ -1,0 +1,98 @@
+package com.lnt.services;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.http.HttpEntity;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.lnt.services.data.Contents;
+import com.lnt.services.data.Header;
+import com.lnt.services.data.ProjectDetails;
+import com.lnt.services.data.RootJson;
+import com.lnt.services.youtube.YouTubePoster;
+import com.lnt.workers.CMDCWorker;
+import com.lnt.workers.YouTubeWorker;
+
+@RestController
+@ComponentScan("com.lnt")
+public class SearchMicroServices {
+
+	private String searchString;
+	private final RestTemplate restTemplate;
+	private Map<String, String[]> map;
+	private String urlFromProps;
+	private HashMap<String, String> urlMapping = new HashMap<>();
+
+	@Autowired
+	public ProjectDetails bean;
+	@Autowired
+	private YouTubePoster poster;
+	@Autowired
+	private CatlogIdService catlogIdService;
+
+	@Autowired
+	private SearchResultService resultService;
+
+	private String searchUrl;
+	private CountDownLatch countDownLatch;
+	private Contents[] contents;
+
+	public SearchMicroServices(RestTemplateBuilder builder) {
+		this.restTemplate = builder.build();
+	}
+
+	@RequestMapping("projectName")
+	String getProjectName() {
+		urlFromProps = "http://" + bean.getCmdcIpAddress() + ":" + bean.getCmdcServerPortNumber() + "/cmdc/content";
+		System.out.println(urlFromProps);
+		return bean.getProjectName() + " CMDC server Ip " + bean.getCmdcIpAddress() + " and port number  "
+				+ bean.getCmdcServerPortNumber();
+	}
+
+	@RequestMapping("/cmdc/region/24833/catalogueId")
+	public String getCatlogId() {
+		return catlogIdService.getCatlogId();
+	}
+
+	@RequestMapping("image/*/*/*")
+	public HttpEntity<byte[]> getImage(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse)
+			throws IOException {
+		return this.poster.getImage(httpServletRequest, httpServletResponse, contents);
+
+	}
+
+	@RequestMapping("cmdc/content")
+	public RootJson getSearchResult(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+		return this.resultService.getSearchResult(httpServletRequest, httpServletResponse);
+	}
+
+	public ModelAndView method(String projectUrl) {
+		return new ModelAndView("redirect:" + projectUrl);
+	}
+
+
+}

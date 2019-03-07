@@ -1,0 +1,47 @@
+package com.lnt.workers;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+
+import org.springframework.web.client.RestTemplate;
+
+import com.lnt.services.RootJson;
+
+public class YouTubeWorker implements Callable<RootJson> {
+
+	private RestTemplate restTemplate;
+	private String searchString;
+	private CountDownLatch countDownLatch;
+
+	public YouTubeWorker(String searchString, RestTemplate restTemplate, CountDownLatch countDownLatch) {
+		this.restTemplate = restTemplate;
+		this.searchString = searchString;
+		this.countDownLatch = countDownLatch;
+	}
+
+	public RootJson call() throws Exception {
+		String uri = null;
+		if (searchString != null)
+			uri = "http://localhost:8090/searchYouTube/" + searchString;
+		else
+			uri = "http://localhost:8090/searchYouTube";
+
+		System.out.println("search URl for YouTube " + uri);
+		RootJson youtubResult = null;
+		try {
+			System.out.println("SearchMicroServices.YouTubeThread.call()");
+
+			// Thread.sleep(10000);
+			youtubResult = restTemplate.getForObject(uri, RootJson.class);
+			System.out.println("@@@@@@@@@@@@@@@ YOUTUBE @@@@@@@@@@@@@@@@@@@@");
+			// System.out.println(youtubResult);
+
+		} finally {
+			System.out.println("SearchMicroServices.YouTubeThread.call()" + countDownLatch.getCount());
+			countDownLatch.countDown();
+		}
+		System.out.println("SearchMicroServices.YouTubeThread.call() after " + countDownLatch.getCount());
+		return youtubResult;
+	}
+
+}

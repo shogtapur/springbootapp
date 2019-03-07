@@ -1,0 +1,462 @@
+package com.lnt.services;
+
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.sql.Time;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.Timer;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+import javax.imageio.ImageIO;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestOperations;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.ModelAndView;
+
+@RestController
+public class SearchMicroServices {
+
+	private String searchString;
+	private final RestTemplate restTemplate;
+	private Map<String, String[]> map;
+	private String urlFromProps;
+	private HashMap<String, String> urlMapping = new HashMap<>();
+
+	public SearchMicroServices(RestTemplateBuilder builder) {
+		System.out.println("SearchMicroServices.SearchMicroServices() name ");
+		this.restTemplate = builder.build();
+	}
+
+	@Autowired
+	public ProjectDetails bean;
+	private String searchUrl;
+	private CountDownLatch countDownLatch;
+
+	@RequestMapping("projectName")
+	String getProjectName() {
+		urlFromProps = "http://" + bean.getCmdcIpAddress() + ":" + bean.getCmdcServerPortNumber() + "/cmdc/content";
+		System.out.println(urlFromProps);
+		return bean.getProjectName() + " CMDC server Ip " + bean.getCmdcIpAddress() + " and port number  "
+				+ bean.getCmdcServerPortNumber();
+	}
+
+	@RequestMapping("/cmdc/region/24833/catalogueId")
+	public String getCatlogId() {
+		String catlogid = null;
+
+		String url = "http://10.126.53.144:8085/cmdc/region/24833/catalogueId?version=HD_PDL";
+		URI uri2 = null;
+		try {
+			uri2 = new URI(url);
+			System.out.println(uri2.isAbsolute());
+			System.out.println("cmdc URI  " + uri2);
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		}
+
+		String string = null;
+		try {
+			catlogid = restTemplate.getForObject(uri2, String.class);
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@  CMDC  @@@@@@@@@@@@@@@@@@@@@@2");
+			System.out.println(string);
+		} catch (Exception e) {
+			e.printStackTrace();
+			string = null;
+
+		}
+
+		return catlogid;
+	}
+
+	@RequestMapping("image/*")
+	public HttpEntity<byte[]> getImage(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse)
+			throws IOException {
+		System.out.println("SearchMicroServices.getImage()");
+		StringBuffer urlString = httpServletRequest.getRequestURL();
+		System.out.println("SearchMicroServices.getImage() url string " + urlString);
+
+		URL url = new URL("https://img.youtube.com/vi/fqgPmnW8yCU/0.jpg");
+		InputStream in = new BufferedInputStream(url.openStream());
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		byte[] buf = new byte[1024];
+		int n = 0;
+		while (-1 != (n = in.read(buf))) {
+			out.write(buf, 0, n);
+		}
+		out.close();
+		in.close();
+		byte[] image = out.toByteArray();
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.IMAGE_JPEG);
+		headers.setContentLength(image.length);
+
+		return new HttpEntity<byte[]>(image, headers);
+
+	}
+
+	@RequestMapping("cmdc/content")
+	public RootJson getSearchResult(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+		RootJson json = new RootJson();
+		String url = httpServletRequest.getRequestURI();
+		map = httpServletRequest.getParameterMap();
+		String qString = httpServletRequest.getQueryString();
+		StringBuffer urlString = httpServletRequest.getRequestURL();
+		System.out.println("Query String " + qString);
+		System.out.println("Requestd Url " + urlString);
+		System.out.println("Request URI " + url);
+		getProjectName();
+		System.out.println("CMDC URL from props " + urlFromProps);
+		// urlString = new StringBuffer("http://10.126.53.144:8085/cmdc/content");
+		urlString = new StringBuffer(urlFromProps);
+		searchUrl = getSearchURL(urlString, qString);
+		System.out.println("search Url  " + searchUrl);
+		searchString = getSearchString(map);
+		System.out.println("search string " + searchString);
+		// json = getSearchResults(searchUrl, searchString);
+		countDownLatch = new CountDownLatch(2);
+		ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+		Future<RootJson> youtubeFuture = executorService.submit(new YouTubeThread());
+		Future<RootJson> cmdcFuture = executorService.submit(new CMDCThread());
+		RootJson yJson = null;
+		RootJson cJson = null;
+		try {
+			DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+			LocalDateTime now = LocalDateTime.now();
+			System.out.println("before await " + dtf.format(now));
+
+			countDownLatch.await();
+			DateTimeFormatter dtf1 = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+			LocalDateTime now1 = LocalDateTime.now();
+			System.out.println("after await " + dtf1.format(now1));
+
+			yJson = youtubeFuture.get();
+			cJson = cmdcFuture.get();
+			System.out.println("SearchMicroServices.getSearchResult() countDownLatch " + countDownLatch.getCount());
+		} catch (InterruptedException | ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		/*
+		 * Set<Callable<RootJson>> callables = new HashSet<Callable<RootJson>>();
+		 * 
+		 * callables.add(new YouTubeThread()); callables.add(new CMDCThread());
+		 * 
+		 * RootJson result = null; try {
+		 * 
+		 * List<Future<RootJson>> futures = executorService.invokeAll(callables); for
+		 * (Future<RootJson> future : futures) {
+		 * 
+		 * System.out.println("future.get = " + future.get()); } } catch
+		 * (InterruptedException | ExecutionException e) { // TODO Auto-generated catch
+		 * block System.out.println(); e.printStackTrace(); }
+		 * System.out.println("result = " + result);
+		 */
+		executorService.shutdown();
+		Contents contents[] = yJson.getContents();
+		System.out.println("SearchMicroServices.getSearchResult() content length " + contents.length);
+
+		updateMediaURIForYoutube(contents);
+
+		json = getCompleteResult(yJson, cJson);
+		System.out.println("SearchMicroServices.getSearchResult() hash len" + urlMapping.size());
+
+		System.out.println(urlMapping);
+
+		return json;
+	}
+
+	private void updateMediaURIForYoutube(Contents contents[]) {
+
+		for (int i = 0; i < contents.length; i++) {
+			Media media[] = contents[i].getMedia();
+			for (int j = 0; j < media.length; j++) {
+				System.out.println(" Media url " + media[j].getUri());
+				String url = storeUrl(media[j].getUri());
+				media[j].setUri(url);
+			}
+
+		}
+
+	}
+
+	private String storeUrl(String url) {
+
+		String localUrl = "http://localhost:8080/image";
+		System.out.println("orginal url " + url);
+		try {
+			URL url1 = new URL(url);
+
+			System.out.println("SearchMicroServices.storeUrl() Path " + url1.getPath());
+			localUrl = localUrl + url1.getPath();
+			System.out.println("SearchMicroServices.storeUrl() " + localUrl);
+			urlMapping.put(localUrl, url);
+			return localUrl;
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+
+		}
+		return null;
+	}
+
+	private String getSearchString(Map map) {
+		String searchString = null;
+		Set s = map.entrySet();
+		Iterator it = s.iterator();
+		while (it.hasNext()) {
+			Map.Entry<String, String[]> entry = (Map.Entry<String, String[]>) it.next();
+			String key = entry.getKey();
+			String[] value = entry.getValue();
+			// System.out.println("Key is " + key + " -->" + value);
+
+			for (int j = 0; j < value.length; j++) {
+				// System.out.println("Q value " + value[j]);
+				if (value[j].contains("sortTitle")) {
+					String[] str = value[j].split(",");
+					// System.out.println("su " + str.length);
+					if (str.length > 1) {
+						for (int i = 0; i < str.length; i++) {
+							// System.out.println("Sunil " + str[i]);
+							if (str[i].contains("sortTitle~")) {
+								searchString = str[i].substring(str[i].indexOf('~') + 1);
+								System.out.println("---");
+							}
+						}
+					}
+
+				}
+			}
+		}
+		return searchString;
+
+	}
+
+	private RootJson getSearchResults(String url, String searchString) {
+		RootJson rootJson = new RootJson();
+		// String uri =
+		// "http://10.126.53.144:8085/cmdc/content?region=24833&currency=ILS&catalogueId=12&filter=catchUp~false&filter=restart~false&isPurchasable&hasParentGroup=false&filter=source~vod&filter=source~group&parentalRating=13&collapse=false&lang=eng&count=30&q=title,cast~test&sort=%2btitle&pset=Group1";
+		String uri = null;
+		if (searchString != null)
+			uri = "http://localhost:8090/searchYouTube/" + searchString;
+		else
+			uri = "http://localhost:8090/searchYouTube";
+
+		System.out.println("search URl for YouTube " + uri);
+		RootJson youtubResult = null;
+		try {
+
+			youtubResult = restTemplate.getForObject(uri, RootJson.class);
+			System.out.println("@@@@@@@@@@@@@@@ YOUTUBE @@@@@@@@@@@@@@@@@@@@");
+			// System.out.println(youtubResult);
+		} catch (Exception e) {
+			e.printStackTrace();
+			youtubResult = null;
+
+		}
+
+		uri = url;
+		URI uri2 = null;
+		System.out.println("search url  for CMDC " + url);
+		try {
+			uri2 = new URI(url);
+			System.out.println(uri2.isAbsolute());
+			System.out.println("cmdc URI  " + uri2);
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		}
+
+		RootJson cmdcResult = null;
+		try {
+			cmdcResult = restTemplate.getForObject(uri2, RootJson.class);
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@  CMDC  @@@@@@@@@@@@@@@@@@@@@@2");
+			// System.out.println(cmdcResult);
+		} catch (Exception e) {
+			String erorrMessage = e.getMessage();
+			if (erorrMessage.equals("404 Not Found"))
+				;
+			{
+
+			}
+			e.printStackTrace();
+			cmdcResult = null;
+
+		}
+
+		if (youtubResult != null && cmdcResult != null) {
+			Header commmonHeader = new Header();
+			commmonHeader.setTotal(cmdcResult.getHeader().getTotal() + youtubResult.getHeader().getTotal());
+			String commonError = cmdcResult.getError();
+			int cLen = cmdcResult.getContents().length;
+			int yLen = youtubResult.getContents().length;
+			System.out.println(" cLen " + cLen + " yLen " + yLen);
+			Contents contents[] = new Contents[cLen + yLen];
+			System.arraycopy(youtubResult.getContents(), 0, contents, 0, yLen);
+			System.arraycopy(cmdcResult.getContents(), 0, contents, yLen, cLen);
+			System.out.println(" $$$$$$$$$$$  " + Arrays.toString(contents));
+			RootJson finalJson = new RootJson();
+			finalJson.setFacets(null);
+			finalJson.setContents(contents);
+			finalJson.setError(commonError);
+			finalJson.setHeader(commmonHeader);
+			System.out.println("##########################################################################3");
+			System.out.println(finalJson);
+			return finalJson;
+		} else if (youtubResult == null && cmdcResult != null) {
+			return rootJson = cmdcResult;
+		} else if (cmdcResult == null && youtubResult != null) {
+			return rootJson = youtubResult;
+		}
+
+		rootJson = youtubResult;
+
+		return youtubResult;
+
+	}
+
+	public ModelAndView method(String projectUrl) {
+		return new ModelAndView("redirect:" + projectUrl);
+	}
+
+	private String getSearchURL(StringBuffer url, String queryString) {
+		String searchUrl = null;
+
+		if (queryString != null)
+			searchUrl = url + "?" + queryString;
+		else
+			searchUrl = new String(url);
+
+		return searchUrl;
+	}
+
+	public class YouTubeThread implements Callable<RootJson> {
+
+		public RootJson call() throws Exception {
+			String uri = null;
+			if (searchString != null)
+				uri = "http://localhost:8090/searchYouTube/" + searchString;
+			else
+				uri = "http://localhost:8090/searchYouTube";
+
+			System.out.println("search URl for YouTube " + uri);
+			RootJson youtubResult = null;
+			try {
+				System.out.println("SearchMicroServices.YouTubeThread.call()");
+
+				// Thread.sleep(10000);
+				youtubResult = restTemplate.getForObject(uri, RootJson.class);
+				System.out.println("@@@@@@@@@@@@@@@ YOUTUBE @@@@@@@@@@@@@@@@@@@@");
+				// System.out.println(youtubResult);
+				countDownLatch.countDown();
+			} catch (Exception e) {
+				e.printStackTrace();
+				youtubResult = null;
+
+			}
+			return youtubResult;
+		}
+
+	}
+
+	public class CMDCThread implements Callable<RootJson> {
+
+		public RootJson call() throws Exception {
+			RootJson cmdcResult = null;
+			URI uri2 = null;
+			System.out.println("search url  for CMDC " + searchUrl);
+			if (searchUrl != null) {
+				try {
+					uri2 = new URI(searchUrl);
+					System.out.println(uri2.isAbsolute());
+					System.out.println("cmdc URI  " + uri2);
+
+				} catch (URISyntaxException e) {
+					e.printStackTrace();
+				}
+
+				try {
+					System.out.println("SearchMicroServices.CMDCThread.call()");
+					cmdcResult = restTemplate.getForObject(uri2, RootJson.class);
+					System.out.println("@@@@@@@@@@@@@@@@@@@@@@  CMDC  @@@@@@@@@@@@@@@@@@@@@@2");
+					countDownLatch.countDown();
+					System.out.println(" countDownLatch.countDown(); " + countDownLatch.getCount());
+					// System.out.println(cmdcResult);
+				} catch (Exception e) {
+					String erorrMessage = e.getMessage();
+					if (erorrMessage.equals("404 Not Found"))
+						;
+					{
+
+					}
+					e.printStackTrace();
+					cmdcResult = null;
+
+				}
+			}
+			return cmdcResult;
+		}
+
+	}
+
+	private RootJson getCompleteResult(RootJson youtubResult, RootJson cmdcResult) {
+		RootJson finalJson = new RootJson();
+		if (youtubResult != null && cmdcResult != null) {
+			Header commmonHeader = new Header();
+			commmonHeader.setTotal(cmdcResult.getHeader().getTotal() + youtubResult.getHeader().getTotal());
+			String commonError = cmdcResult.getError();
+			int cLen = cmdcResult.getContents().length;
+			int yLen = youtubResult.getContents().length;
+			System.out.println(" cLen " + cLen + " yLen " + yLen);
+			Contents contents[] = new Contents[cLen + yLen];
+			System.arraycopy(youtubResult.getContents(), 0, contents, 0, yLen);
+			System.arraycopy(cmdcResult.getContents(), 0, contents, yLen, cLen);
+			System.out.println(" $$$$$$$$$$$  " + Arrays.toString(contents));
+
+			finalJson.setFacets(null);
+			finalJson.setContents(contents);
+			finalJson.setError(commonError);
+			finalJson.setHeader(commmonHeader);
+			System.out.println("##########################################################################3");
+			System.out.println(finalJson);
+			return finalJson;
+		} else if (youtubResult == null && cmdcResult != null) {
+			return finalJson = cmdcResult;
+		} else if (cmdcResult == null && youtubResult != null) {
+			return finalJson = youtubResult;
+		}
+		return finalJson;
+	}
+
+}

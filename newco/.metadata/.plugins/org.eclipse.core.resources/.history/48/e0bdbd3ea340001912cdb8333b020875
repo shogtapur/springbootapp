@@ -1,0 +1,14 @@
+package com.lnt.workers;
+
+import org.springframework.web.client.RestTemplate;
+
+public class YouTubeWorker {
+
+	private String url;
+	private RestTemplate restTemplate;
+
+	public YouTubeWorker(String url, RestTemplate restTemplate) {
+		this.url = url;
+		this.restTemplate = restTemplate;
+	}
+}

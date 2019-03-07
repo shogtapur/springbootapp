@@ -1,0 +1,28 @@
+package com.lnt.services.data;
+
+public class ParentalRating {
+	String scheme = "custom" ;
+	int rating = 0 ;
+	
+	public ParentalRating() {
+		// TODO Auto-generated constructor stub
+	}
+	public String getScheme() {
+		return scheme;
+	}
+	public void setScheme(String scheme) {
+		this.scheme = scheme;
+	}
+	public int getRating() {
+		return rating;
+	}
+	public void setRating(int rating) {
+		this.rating = rating;
+	}
+	@Override
+	public String toString() {
+		return "ParentalRating [scheme=" + scheme + ", rating=" + rating + "]";
+	}
+	
+	
+}

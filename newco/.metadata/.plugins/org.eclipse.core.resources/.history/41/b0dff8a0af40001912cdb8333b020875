@@ -1,0 +1,48 @@
+package com.lnt.workers;
+
+import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.UnknownHostException;
+
+import com.lnt.services.Contents;
+import com.lnt.services.Media;
+
+
+
+public class YouTubeMediaUpdateWorker {
+	/*
+	 * 
+	 * private Contents[] contents;
+	 * 
+	 * public YouTubeMediaUpdateWorker(Contents contents[]) { this.contents =
+	 * contents; }
+	 * 
+	 * private void updateMediaURIForYoutube() {
+	 * 
+	 * for (int i = 0; i < contents.length; i++) { Media media[] =
+	 * contents[i].getMedia(); for (int j = 0; j < media.length; j++) {
+	 * System.out.println(" Media url " + media[j].getUri()); String url =
+	 * storeUrl(media[j].getUri()); media[j].setUri(url); }
+	 * 
+	 * }
+	 * 
+	 * }
+	 * 
+	 * private String storeUrl(String url) {
+	 * 
+	 * String localUrl = "http://localhost:8080/image"; try { InetAddress ip =
+	 * InetAddress.getLocalHost();
+	 * System.out.println("SearchMicroServices.storeUrl()  host address " +
+	 * ip.getHostAddress()); localUrl = "http://" + ip.getHostAddress() +
+	 * ":8080/image"; } catch (UnknownHostException e1) { e1.printStackTrace(); }
+	 * 
+	 * System.out.println("orginal url " + url); try { URL url1 = new URL(url);
+	 * localUrl = localUrl + url1.getPath();
+	 * System.out.println("SearchMicroServices.storeUrl() " + localUrl);
+	 * urlMapping.put(localUrl, url); return localUrl; } catch
+	 * (MalformedURLException e) { e.printStackTrace();
+	 * 
+	 * } return null; }
+	 * 
+	 */}

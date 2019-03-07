@@ -1,0 +1,5 @@
+package com.lnt.services;
+
+public class CatlogIdService {
+
+}

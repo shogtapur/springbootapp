@@ -1,0 +1,46 @@
+package com.lnt.services;
+
+public class Media {
+	String uri;
+	String classification;
+	String mimeType ;
+	boolean adult;
+	
+	public Media() {
+		// TODO Auto-generated constructor stub
+	}
+	public String getClassification() {
+		return classification;
+	}
+	public void setClassification(String classification) {
+		this.classification = classification;
+	}
+	public String getMimeType() {
+		return mimeType;
+	}
+	public void setMimeType(String mimeType) {
+		this.mimeType = mimeType;
+	}
+	public boolean isAdult() {
+		return adult;
+	}
+	public void setAdult(boolean adult) {
+		this.adult = adult;
+	}
+	public Media(String uri) {
+		this.uri=uri;
+	}
+	public String getUri() {
+		return uri;
+	}
+	public void setUri(String uri) {
+		this.uri = uri;
+	}
+	@Override
+	public String toString() {
+		return "Media [uri=" + uri + ", classification=" + classification + ", mimeType=" + mimeType + ", adult="
+				+ adult + "]";
+	}
+	
+	
+}

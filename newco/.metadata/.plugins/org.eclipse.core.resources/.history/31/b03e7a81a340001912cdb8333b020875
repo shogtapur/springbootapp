@@ -1,0 +1,18 @@
+package com.lnt.workers;
+
+import java.util.concurrent.CountDownLatch;
+
+import org.springframework.web.client.RestTemplate;
+
+public class CMDCWorker {
+
+	private RestTemplate restTemplate;
+	private String searchString;
+	private CountDownLatch countDownLatch;
+
+	public CMDCWorker(String searchString, RestTemplate restTemplate, CountDownLatch countDownLatch) {
+		this.restTemplate = restTemplate;
+		this.searchString = searchString;
+		this.countDownLatch = countDownLatch;
+	}
+}

@@ -1,0 +1,57 @@
+package com.lnt.workers;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+
+import org.springframework.web.client.RestTemplate;
+
+import com.lnt.services.RootJson;
+
+public class CMDCWorker implements Callable<RootJson> {
+
+	private RestTemplate restTemplate;
+	private String searchUrl;
+	private CountDownLatch countDownLatch;
+
+	public CMDCWorker(String searchUrl, RestTemplate restTemplate, CountDownLatch countDownLatch) {
+		this.restTemplate = restTemplate;
+		this.searchUrl = searchUrl;
+		this.countDownLatch = countDownLatch;
+	}
+
+	public RootJson call() throws Exception {
+		RootJson cmdcResult = null;
+		URI uri2 = null;
+		System.out.println("search url  for CMDC " + searchUrl);
+		if (searchUrl != null) {
+			try {
+				uri2 = new URI(searchUrl);
+				System.out.println(uri2.isAbsolute());
+				System.out.println("cmdc URI  " + uri2);
+
+			} catch (URISyntaxException e) {
+				e.printStackTrace();
+			}
+
+			try {
+				System.out.println("SearchMicroServices.CMDCThread.call()");
+				cmdcResult = restTemplate.getForObject(uri2, RootJson.class);
+				System.out.println("@@@@@@@@@@@@@@@@@@@@@@  CMDC  @@@@@@@@@@@@@@@@@@@@@@2");
+
+				System.out.println(" countDownLatch.countDown(); " + countDownLatch.getCount());
+				// System.out.println(cmdcResult);
+			} finally {
+				System.out.println(
+						"SearchMicroServices.CMDCThread.call()before  count latch " + countDownLatch.getCount());
+
+				countDownLatch.countDown();
+				System.out.println("SearchMicroServices.CMDCThread.call() count latch " + countDownLatch.getCount());
+
+			}
+		}
+		return cmdcResult;
+	}
+
+}

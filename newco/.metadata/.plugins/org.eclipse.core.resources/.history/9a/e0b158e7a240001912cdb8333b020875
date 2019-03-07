@@ -1,0 +1,9 @@
+package com.lnt.workers;
+
+public class CMDCWorker {
+
+	public CMDCWorker() {
+		// TODO Auto-generated constructor stub
+	}
+	
+}

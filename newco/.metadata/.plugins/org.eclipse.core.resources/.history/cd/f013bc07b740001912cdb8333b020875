@@ -1,0 +1,23 @@
+package com.lnt.workers;
+
+import java.awt.List;
+import java.util.ArrayList;
+
+import org.springframework.stereotype.Service;
+
+import com.lnt.services.data.RootJson;
+
+@Service
+public class WorkerManger {
+
+	public ArrayList<RootJson> exectureWorkker()
+	{
+		ArrayList<RootJson > arrayList = new ArrayList<>();
+		
+		
+		
+		return arrayList;
+		
+	}
+
+}
